@@ -68,7 +68,7 @@ Revisa patrones de claves en el código, que `.env.example` esté vacío, que `p
 
 ## Demo en Vercel (para enseñar el diseño)
 
-Vercel no ofrece disco persistente, así que la web arranca en **modo demostración**: todo funciona (web pública, mapas, panel, formularios), pero los cambios del panel —propiedades, fotos y contactos— viven en una carpeta temporal y **se pierden al reiniciarse la instancia**. El panel lo avisa con un banner amarillo.
+Vercel no ofrece disco persistente, así que la web arranca en **modo demostración**: todo funciona (web pública, mapas, panel, formularios), pero los cambios del panel —propiedades, fotos y contactos— viven en una carpeta temporal y **se pierden al reiniciarse la instancia**.
 
 1. Importa el repositorio en Vercel (detecta Next.js solo; no hay que cambiar el comando de build).
 2. En **Settings → Environment Variables** define `ADMIN_PASSWORD` y `ADMIN_SESSION_SECRET` (mínimo 32 caracteres aleatorios; se pueden copiar del `.env.local`). Sin ellas la web pública funciona, pero el panel queda desactivado.

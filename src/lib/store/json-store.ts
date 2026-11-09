@@ -16,8 +16,7 @@ import path from 'path'
  * MODO DEMOSTRACIÓN: en plataformas sin disco persistente (p. ej. Vercel, donde el código vive
  * en un sistema de archivos de solo lectura) la carpeta de datos no es escribible. En ese caso
  * se usa una carpeta temporal del sistema: la web funciona y se puede probar el panel, pero
- * los cambios son efímeros (se pierden al reiniciar la instancia). El panel lo avisa con un
- * banner (ver isPersistentStore).
+ * los cambios son efímeros (se pierden al reiniciar la instancia). Queda constancia en el log.
  */
 
 type Resolved = { dir: string; persistent: boolean }
@@ -60,11 +59,6 @@ function resolveStore(): Resolved {
 
 export function dataDir(): string {
   return resolveStore().dir
-}
-
-/** false = modo demostración (hosting sin disco persistente): los cambios se pierden al reiniciar. */
-export function isPersistentStore(): boolean {
-  return resolveStore().persistent
 }
 
 export function uploadsDir(): string {

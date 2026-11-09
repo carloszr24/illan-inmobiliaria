@@ -139,7 +139,6 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
       featured: properties.filter((p) => p.featured && !p.archived).length,
       reserved: properties.filter((p) => p.status === 'reservado' && !p.archived).length,
       archived: properties.filter((p) => p.archived).length,
-      demo: properties.filter((p) => p.demo).length,
     }),
     [properties]
   )
@@ -420,16 +419,6 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
         <StatCard label="Reservadas" value={stats.reserved} tone="stone" />
         <StatCard label="Archivadas" value={stats.archived} tone="amber" />
       </div>
-
-      {stats.demo > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <span aria-hidden="true">ⓘ</span>
-          <p>
-            Hay <strong>{stats.demo} inmuebles de ejemplo</strong> (marcados con «Ejemplo») para enseñar el diseño. Archívalos y
-            elimínalos antes de publicar la web con los inmuebles reales.
-          </p>
-        </div>
-      )}
 
       {/* Formulario */}
       {showForm && (
