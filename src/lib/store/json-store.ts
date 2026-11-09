@@ -1,4 +1,6 @@
+import { accessSync, constants, mkdirSync } from 'fs'
 import { promises as fs } from 'fs'
+import os from 'os'
 import path from 'path'
 
 /**
@@ -10,19 +12,64 @@ import path from 'path'
  * - Pensado para un único proceso Node con disco persistente (VPS, Docker con volumen, etc.).
  *   Si en el futuro hace falta escalar a varias instancias, esta capa es lo único que habría
  *   que cambiar por una base de datos real (Postgres, SQLite…): el resto de la app no la toca.
+ *
+ * MODO DEMOSTRACIÓN: en plataformas sin disco persistente (p. ej. Vercel, donde el código vive
+ * en un sistema de archivos de solo lectura) la carpeta de datos no es escribible. En ese caso
+ * se usa una carpeta temporal del sistema: la web funciona y se puede probar el panel, pero
+ * los cambios son efímeros (se pierden al reiniciar la instancia). El panel lo avisa con un
+ * banner (ver isPersistentStore).
  */
 
-export function dataDir(): string {
+type Resolved = { dir: string; persistent: boolean }
+
+const globalForStore = globalThis as unknown as {
+  __illanQueues?: Map<string, Promise<unknown>>
+  __illanStore?: Resolved
+}
+const queues = (globalForStore.__illanQueues ??= new Map<string, Promise<unknown>>())
+
+function isWritable(dir: string): boolean {
+  try {
+    mkdirSync(dir, { recursive: true })
+    accessSync(dir, constants.W_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function resolveStore(): Resolved {
+  if (globalForStore.__illanStore) return globalForStore.__illanStore
+
   const custom = process.env.ILLAN_DATA_DIR?.trim()
-  return custom ? path.resolve(custom) : path.join(/*turbopackIgnore: true*/ process.cwd(), 'data')
+  const preferred = custom ? path.resolve(custom) : path.join(/*turbopackIgnore: true*/ process.cwd(), 'data')
+
+  const resolved: Resolved = isWritable(preferred)
+    ? { dir: preferred, persistent: true }
+    : { dir: path.join(os.tmpdir(), 'illan-data'), persistent: false }
+
+  if (!resolved.persistent) {
+    mkdirSync(resolved.dir, { recursive: true })
+    console.warn(
+      `[illan] La carpeta de datos (${preferred}) no es escribible: modo demostración, los cambios no se guardan de forma permanente.`
+    )
+  }
+  globalForStore.__illanStore = resolved
+  return resolved
+}
+
+export function dataDir(): string {
+  return resolveStore().dir
+}
+
+/** false = modo demostración (hosting sin disco persistente): los cambios se pierden al reiniciar. */
+export function isPersistentStore(): boolean {
+  return resolveStore().persistent
 }
 
 export function uploadsDir(): string {
   return path.join(/*turbopackIgnore: true*/ dataDir(), 'uploads')
 }
-
-const globalForStore = globalThis as unknown as { __illanQueues?: Map<string, Promise<unknown>> }
-const queues = (globalForStore.__illanQueues ??= new Map<string, Promise<unknown>>())
 
 /** Serializa operaciones de lectura-modificación-escritura sobre una misma colección. */
 export function withCollection<T>(name: string, fn: () => Promise<T>): Promise<T> {

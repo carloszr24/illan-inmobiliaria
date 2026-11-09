@@ -11,6 +11,7 @@ type AdminAuthGuardProps = {
 export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   const [authed, setAuthed] = useState(false)
   const [configured, setConfigured] = useState(true)
+  const [persistent, setPersistent] = useState(true)
   const [checking, setChecking] = useState(true)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -20,9 +21,10 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   useEffect(() => {
     fetch('/api/admin/session', { credentials: 'include' })
       .then((r) => r.json().catch(() => ({})))
-      .then((data: { authed?: boolean; configured?: boolean }) => {
+      .then((data: { authed?: boolean; configured?: boolean; persistent?: boolean }) => {
         if (data.authed) setAuthed(true)
         if (data.configured === false) setConfigured(false)
+        if (data.persistent === false) setPersistent(false)
       })
       .catch(() => {})
       .finally(() => setChecking(false))
@@ -43,6 +45,11 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
       if (res.ok) {
         setAuthed(true)
         setPassword('')
+        // Tras entrar, averigua si el almacén es persistente (para el aviso de modo demostración)
+        fetch('/api/admin/session', { credentials: 'include' })
+          .then((r) => r.json())
+          .then((s: { persistent?: boolean }) => s.persistent === false && setPersistent(false))
+          .catch(() => {})
         return
       }
       if (res.status === 403) setError('Acceso no permitido desde esta red.')
@@ -138,5 +145,19 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
     )
   }
 
-  return <>{typeof children === 'function' ? children({ logout }) : children}</>
+  return (
+    <>
+      {!persistent && (
+        <div role="status" className="mb-8 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <span aria-hidden="true" className="text-lg leading-none">⚠</span>
+          <p>
+            <strong>Modo demostración.</strong> Este servidor no tiene disco permanente: puedes probar el panel, pero los
+            cambios (propiedades, fotos y contactos) <strong>no se guardan</strong> y desaparecen al reiniciarse. Para
+            trabajar con datos reales hace falta publicar la web en un servidor con disco persistente.
+          </p>
+        </div>
+      )}
+      {typeof children === 'function' ? children({ logout }) : children}
+    </>
+  )
 }

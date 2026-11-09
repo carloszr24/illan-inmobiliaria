@@ -66,7 +66,17 @@ npm run audit:repo
 
 Revisa patrones de claves en el código, que `.env.example` esté vacío, que `package.json` y `package-lock.json` solo apunten al registro de npm, que no exista `.github/`, que git no versione archivos `.env` y que ningún remoto lleve un token en la URL.
 
-## Despliegue (sin GitHub ni Vercel)
+## Demo en Vercel (para enseñar el diseño)
+
+Vercel no ofrece disco persistente, así que la web arranca en **modo demostración**: todo funciona (web pública, mapas, panel, formularios), pero los cambios del panel —propiedades, fotos y contactos— viven en una carpeta temporal y **se pierden al reiniciarse la instancia**. El panel lo avisa con un banner amarillo.
+
+1. Importa el repositorio en Vercel (detecta Next.js solo; no hay que cambiar el comando de build).
+2. En **Settings → Environment Variables** define `ADMIN_PASSWORD` y `ADMIN_SESSION_SECRET` (mínimo 32 caracteres aleatorios; se pueden copiar del `.env.local`). Sin ellas la web pública funciona, pero el panel queda desactivado.
+3. Vuelve a desplegar (*Redeploy*) para que las variables se apliquen.
+
+Para el lanzamiento real usa un servidor con disco persistente (siguiente sección). Fotos de más de 4,5 MB no se pueden subir en Vercel (límite de la plataforma).
+
+## Despliegue en servidor propio (producción)
 
 ```bash
 npm ci
