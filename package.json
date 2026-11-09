@@ -1,0 +1,38 @@
+{
+  "name": "illan-inmobiliaria-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web y panel de administración de ILLAN Inmobiliaria (Lugo)",
+  "scripts": {
+    "setup": "node scripts/setup-env.mjs",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit",
+    "audit:repo": "node scripts/audit-repo.mjs"
+  },
+  "engines": {
+    "node": ">=20.9"
+  },
+  "dependencies": {
+    "@fontsource-variable/dm-sans": "^5.2.8",
+    "@fontsource-variable/source-serif-4": "^5.2.9",
+    "clsx": "^2.1.1",
+    "leaflet": "^1.9.4",
+    "next": "^16.2.12",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "sharp": "^0.35.3",
+    "tailwind-merge": "^2.5.2"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "^22",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.25",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3"
+  }
+}

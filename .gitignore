@@ -1,0 +1,26 @@
+# dependencias
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# secretos: NUNCA se versionan (solo .env.example, que va vacío)
+.env
+.env.*
+!.env.example
+
+# datos en ejecución (propiedades, leads, fotos subidas)
+/data/*
+!/data/.gitkeep
+
+# sistema / editor
+.DS_Store
+*.pem
+npm-debug.log*
+
+# ninguna dependencia de plataformas de CI/hosting concretas
+/.github
+/.vercel

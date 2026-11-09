@@ -1,0 +1,199 @@
+@import '@fontsource-variable/dm-sans';
+@import '@fontsource-variable/source-serif-4';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Paleta corporativa ILLAN (tarjeta de visita) ───────────────────────────
+   Valores "R G B" para que Tailwind pueda aplicar opacidad (bg-brand-green/10).
+   Si el cliente confirma el tono exacto, se cambia aquí y se propaga a toda la web. */
+:root {
+  --green: 27 128 54; /* verde de la tarjeta */
+  --green-light: 42 154 71;
+  --green-dark: 20 97 40;
+  --green-deep: 13 71 32; /* verde del rótulo de la tienda */
+  --green-tint: 234 245 237;
+  --yellow: 232 220 45; /* amarillo del logotipo */
+  --yellow-dark: 201 188 18;
+  --yellow-light: 246 239 138;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-size: 17px;
+  }
+
+  body {
+    @apply bg-white font-sans text-stone-900 antialiased;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  h1,
+  h2 {
+    @apply font-display font-semibold leading-tight tracking-[-0.01em];
+  }
+
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display font-semibold leading-snug;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-green;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-brand-green px-6 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 hover:bg-brand-green-dark;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center rounded-md bg-brand-yellow px-6 py-3 text-sm font-semibold tracking-wide text-brand-green-deep transition-colors duration-200 hover:bg-brand-yellow-dark;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-md border border-brand-green px-6 py-3 text-sm font-medium tracking-wide text-brand-green transition-colors duration-200 hover:bg-brand-green hover:text-white;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.22em] text-brand-green;
+  }
+
+  .field {
+    @apply w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 transition-colors placeholder:text-stone-400 focus:border-brand-green focus:outline-none focus:ring-2 focus:ring-brand-green/20;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-xs font-medium tracking-wide text-stone-600;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+}
+
+.skeleton {
+  @apply animate-skeleton rounded bg-stone-200;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f5f5f4;
+}
+::-webkit-scrollbar-thumb {
+  background: #c7d6cb;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--green));
+}
+
+/* ─── Mapas (Leaflet) ───────────────────────────────────────────────────────── */
+.leaflet-container {
+  font-family: inherit;
+}
+
+.illan-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgb(13 71 32 / 0.3);
+}
+
+.illan-popup .leaflet-popup-content {
+  margin: 0;
+  width: 240px !important;
+}
+
+.illan-popup .leaflet-popup-close-button {
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.92);
+  color: #44403c;
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
+  padding: 0;
+}
+
+.illan-popup-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.illan-popup-link img {
+  display: block;
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  background: rgb(var(--green-tint));
+}
+
+.illan-popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px 14px;
+}
+
+.illan-popup-body strong {
+  font-family: 'Source Serif 4 Variable', Georgia, serif;
+  font-size: 15px;
+  line-height: 1.3;
+  color: #1c1917;
+}
+
+.illan-popup-tag {
+  align-self: flex-start;
+  margin-bottom: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgb(var(--yellow));
+  color: rgb(var(--green-deep));
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.illan-popup-loc {
+  font-size: 12px;
+  color: #78716c;
+}
+
+.illan-popup-price {
+  margin-top: 6px;
+  font-family: 'Source Serif 4 Variable', Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: rgb(var(--green-dark));
+}
+
+.illan-popup-link:hover strong {
+  color: rgb(var(--green));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-fade-up,
+  .animate-fade-in {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
