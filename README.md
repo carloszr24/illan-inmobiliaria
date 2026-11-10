@@ -98,6 +98,14 @@ Las subidas y los datos van a `data/`: móntalo como volumen si usas Docker.
 | Servicios y pasos de «Cómo trabajamos» | `src/data/services.ts` |
 | Textos legales | `src/app/aviso-legal`, `politica-privacidad`, `politica-cookies` |
 
+## Créditos de imágenes
+
+| Imagen | Autor | Licencia |
+| --- | --- | --- |
+| Foto de portada: [Ayuntamiento de Lugo](https://commons.wikimedia.org/wiki/File:Lugo_City_Hall_2.jpg) (`public/images/lugo-ayuntamiento.webp`) | Joseolgon, vía Wikimedia Commons | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+
+La licencia exige citar al autor, enlazar la licencia e indicar los cambios (aquí: redimensionada, difuminada y teñida de verde). El crédito sale en el pie de la web y se define en `src/data/credits.ts`; si se cambia la foto, hay que actualizarlo. Se guarda solo la versión ligera (2000 px, sin metadatos EXIF); el original de 6,9 MB no está en el repositorio. Las ilustraciones de los inmuebles de ejemplo son propias.
+
 ## Pendiente de confirmar con el cliente
 
 - **Logotipo original** (SVG o PNG) y, si los hay, fotos reales de la oficina y de Lugo para el hero.

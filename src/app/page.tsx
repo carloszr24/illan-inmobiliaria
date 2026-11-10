@@ -1,9 +1,11 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowRightIcon, ChartIcon, FileIcon, HandshakeIcon, HomeIcon, KeyIcon, MapPinIcon, PhoneIcon, ShieldIcon, WhatsAppIcon } from '@/components/brand/Icons'
 import { HeroSkyline } from '@/components/home/HeroSkyline'
 import { ValoracionGratuitaModal } from '@/components/home/ValoracionGratuitaModal'
 import { OfficeMap } from '@/components/layout/OfficeMap'
 import { PropertyCard } from '@/components/properties/PropertyCard'
+import { HERO_PHOTO } from '@/data/credits'
 import { PROCESS_STEPS, SERVICE_ITEMS, type ServiceKey } from '@/data/services'
 import { CONTACT, phoneHref, whatsappHref } from '@/lib/contact'
 import { listFeaturedForHome } from '@/lib/properties'
@@ -27,6 +29,20 @@ export default async function HomePage() {
     <>
       {/* HERO */}
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-brand-green-deep via-brand-green-dark to-brand-green">
+        {/* Foto del centro de Lugo, difuminada y teñida con el verde de la marca (ver crédito en el pie) */}
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+          <Image
+            src={HERO_PHOTO.src}
+            alt=""
+            fill
+            priority
+            quality={70}
+            sizes="100vw"
+            className="scale-105 object-cover object-[50%_40%] opacity-45 mix-blend-luminosity blur-[2px]"
+          />
+          {/* Velo verde: más intenso a la izquierda, donde va el texto */}
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-green-deep/85 via-brand-green-deep/50 to-brand-green-dark/20" />
+        </div>
         <div className="pointer-events-none absolute -right-24 -top-24 h-[28rem] w-[28rem] rounded-full bg-brand-yellow/20 blur-3xl" aria-hidden="true" />
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-12 pt-14 md:px-10 md:pb-16 md:pt-20 lg:grid-cols-12">
           <div className="lg:col-span-7">

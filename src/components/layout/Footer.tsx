@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Logo } from '@/components/brand/Logo'
 import { GlobeIcon, MailIcon, MapPinIcon, PhoneIcon, WhatsAppIcon } from '@/components/brand/Icons'
+import { HERO_PHOTO } from '@/data/credits'
 import { AGENT, CONTACT, directionsHref, emailHref, OFFICE, phoneHref, whatsappHref } from '@/lib/contact'
 
 const linkClass = 'transition-colors hover:text-brand-yellow'
@@ -66,6 +67,17 @@ export function Footer() {
             La información de esta web tiene carácter meramente informativo y no es contractual.
           </p>
         </div>
+        <p className="mt-4 text-[11px] leading-relaxed text-white/45">
+          Foto de portada: «{HERO_PHOTO.title}» de {HERO_PHOTO.author},{' '}
+          <a href={HERO_PHOTO.licenseUrl} target="_blank" rel="noopener noreferrer license" className="underline hover:text-brand-yellow">
+            {HERO_PHOTO.license}
+          </a>
+          , vía{' '}
+          <a href={HERO_PHOTO.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-brand-yellow">
+            {HERO_PHOTO.sourceName}
+          </a>
+          . {HERO_PHOTO.changes}
+        </p>
       </div>
     </footer>
   )
