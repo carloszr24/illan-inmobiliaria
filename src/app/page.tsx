@@ -53,7 +53,7 @@ export default async function HomePage() {
               Encuentra tu próximo hogar <span className="text-brand-yellow">en Lugo</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/85">
-              Compra, venta y alquiler de pisos, casas, locales y terrenos en Lugo y provincia. Trato directo y
+              Compra, venta y alquiler de pisos, casas, locales y terrenos en Lugo y provincia, y oportunidades de inversión. Trato directo y
               acompañamiento en cada paso.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">

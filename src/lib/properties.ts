@@ -24,6 +24,9 @@ const toProperty = (r: PropertyRecord): Property => ({
   updatedAt: new Date(r.updatedAt),
 })
 
+/** Vista pública: sin los datos privados del propietario (solo el panel de administración los recibe). */
+const toPublicProperty = (r: PropertyRecord): Property => ({ ...toProperty(r), ownerName: null, ownerPhone: null })
+
 const sortForDisplay = (list: PropertyRecord[]) =>
   [...list].sort((a, b) => {
     const diff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
@@ -53,12 +56,12 @@ export async function listAllProperties(): Promise<Property[]> {
 
 /** Inmuebles visibles en la web pública. */
 export async function listPublicProperties(): Promise<Property[]> {
-  return sortForDisplay((await load()).filter((p) => !p.archived)).map(toProperty)
+  return sortForDisplay((await load()).filter((p) => !p.archived)).map(toPublicProperty)
 }
 
 export async function getPublicPropertyById(id: string): Promise<Property | undefined> {
   const found = (await load()).find((p) => p.id === id && !p.archived)
-  return found ? toProperty(found) : undefined
+  return found ? toPublicProperty(found) : undefined
 }
 
 export async function getPropertyById(id: string): Promise<Property | undefined> {
@@ -74,7 +77,7 @@ export async function getProperty(id: string, includeArchived: boolean): Promise
 export async function listFeaturedForHome(): Promise<Property[]> {
   return sortForDisplay((await load()).filter((p) => p.featured && !p.archived))
     .slice(0, MAX_FEATURED_ON_HOME)
-    .map(toProperty)
+    .map(toPublicProperty)
 }
 
 // ─── Filtros públicos ─────────────────────────────────────────────────────────
@@ -153,6 +156,8 @@ export type PropertyInput = {
   emissionsValue: number | null
   lat: number | null
   lon: number | null
+  ownerName: string | null
+  ownerPhone: string | null
   featured: boolean
 }
 
@@ -206,6 +211,12 @@ export function parsePropertyInput(body: unknown): { value: PropertyInput } | { 
     ? b.images.map(String).filter((u) => u.startsWith('/') || /^https?:\/\//i.test(u)).slice(0, MAX_PROPERTY_IMAGES)
     : []
 
+  const ownerName = text(b.ownerName)?.slice(0, 120) ?? null
+  const ownerPhone = text(b.ownerPhone)?.slice(0, 40) ?? null
+  if (ownerPhone && !/^\+?[\d\s().-]{6,}$/.test(ownerPhone)) {
+    return { error: 'El teléfono del propietario no es válido (solo números, espacios, + y guiones)' }
+  }
+
   const lat = num(b.lat)
   const lon = num(b.lon)
   if ((lat == null) !== (lon == null)) return { error: 'La ubicación del mapa está incompleta' }
@@ -241,6 +252,8 @@ export function parsePropertyInput(body: unknown): { value: PropertyInput } | { 
       emissionsValue: num(b.emissionsValue),
       lat: lat != null ? Math.round(lat * 1e6) / 1e6 : null,
       lon: lon != null ? Math.round(lon * 1e6) / 1e6 : null,
+      ownerName,
+      ownerPhone,
       featured: Boolean(b.featured),
     },
   }
@@ -305,6 +318,8 @@ function applyInput(input: PropertyInput): Omit<PropertyRecord, 'id' | 'ref' | '
     emissionsValue: input.emissionsValue,
     lat: input.lat,
     lon: input.lon,
+    ownerName: input.ownerName,
+    ownerPhone: input.ownerPhone,
     featured: input.featured,
   }
 }

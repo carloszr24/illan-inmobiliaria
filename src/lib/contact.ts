@@ -40,7 +40,7 @@ export const CONTACT = {
     wa: '34626115111',
     label: 'Teléfono / WhatsApp',
   },
-  email: 'inmobiliariaillan@hotmail.com',
+  email: 'inmobiliariaillan@gmail.com',
   website: `www.${SITE_DOMAIN}`,
 } as const
 

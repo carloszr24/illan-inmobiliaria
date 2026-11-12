@@ -24,7 +24,7 @@ npm run dev        # http://localhost:3000
 
 | Sección | Qué permite |
 | --- | --- |
-| **Propiedades** | Alta y edición con hasta 30 fotos (se optimizan a WebP), **ubicación en el mapa** (clic, arrastrar o buscar dirección), orden manual, destacadas en portada (máx. 3), archivar / reactivar / eliminar, resumen y búsqueda |
+| **Propiedades** | Alta y edición con hasta 30 fotos (se optimizan a WebP), **ubicación en el mapa** (clic, arrastrar o buscar dirección), **nombre y teléfono del propietario** (datos internos: no se publican), orden manual, destacadas en portada (máx. 3), archivar / reactivar / eliminar, resumen y búsqueda |
 | **Contactos** | Mensajes del formulario y solicitudes de valoración: estado del seguimiento, llamada y WhatsApp en un clic, eliminar |
 
 Acceso con contraseña única. Tras 5 intentos fallidos, la IP queda bloqueada 30 minutos. La sesión es una cookie firmada, `HttpOnly` y `SameSite=Strict`, y caduca a las 12 h.

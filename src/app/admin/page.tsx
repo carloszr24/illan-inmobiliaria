@@ -54,6 +54,8 @@ const emptyForm = {
   emissionsValue: '',
   lat: '',
   lon: '',
+  ownerName: '',
+  ownerPhone: '',
   featured: false,
 }
 
@@ -147,7 +149,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
     .filter((p) => (visibility === 'active' ? !p.archived : visibility === 'archived' ? p.archived : true))
     .filter((p) => {
       const needle = search.trim().toLowerCase()
-      return !needle || `${p.title} ${p.location} ${p.ref ?? ''}`.toLowerCase().includes(needle)
+      return !needle || `${p.title} ${p.location} ${p.ref ?? ''} ${p.ownerName ?? ''} ${p.ownerPhone ?? ''}`.toLowerCase().includes(needle)
     })
 
   const canReorder = visibility === 'active' && !search.trim()
@@ -220,6 +222,8 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
       emissionsValue: p.emissionsValue?.toString() || '',
       lat: p.lat != null ? String(p.lat) : '',
       lon: p.lon != null ? String(p.lon) : '',
+      ownerName: p.ownerName || '',
+      ownerPhone: p.ownerPhone || '',
       featured: p.featured,
     })
     setEditingId(p.id)
@@ -490,6 +494,19 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
             </section>
 
             <section>
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-green">Propietario</h3>
+              <p className="mb-4 text-xs text-stone-500">Datos internos: solo los ve la agencia en este panel. No se publican en la web.</p>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                <Field label="Nombre del propietario" className="md:col-span-2">
+                  <input name="ownerName" value={form.ownerName} onChange={handleChange} maxLength={120} autoComplete="off" className="field" placeholder="Nombre y apellidos" />
+                </Field>
+                <Field label="Teléfono del propietario">
+                  <input name="ownerPhone" value={form.ownerPhone} onChange={handleChange} type="tel" inputMode="tel" maxLength={40} autoComplete="off" className="field" placeholder="600 000 000" />
+                </Field>
+              </div>
+            </section>
+
+            <section>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-green">Fotografías</h3>
                 <label className="btn-outline cursor-pointer px-4 py-2 text-xs">
@@ -616,7 +633,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por título, zona o referencia…"
+            placeholder="Buscar por título, zona, referencia o propietario…"
             aria-label="Buscar propiedades"
             className="field max-w-sm py-2"
           />
@@ -642,7 +659,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
             <table className="w-full text-sm">
               <thead className="border-b border-stone-200 bg-stone-50">
                 <tr>
-                  {['Orden', 'Inmueble', 'Precio', 'Tipo', 'Estado', 'Dest.', 'Acciones'].map((h) => (
+                  {['Orden', 'Inmueble', 'Propietario', 'Precio', 'Tipo', 'Estado', 'Dest.', 'Acciones'].map((h) => (
                     <th key={h} scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">{h}</th>
                   ))}
                 </tr>
@@ -675,6 +692,18 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
                             </span>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        {p.ownerName || p.ownerPhone ? (
+                          <>
+                            {p.ownerName && <span className="block max-w-[160px] truncate font-medium text-stone-800" title={p.ownerName}>{p.ownerName}</span>}
+                            {p.ownerPhone && (
+                              <a href={`tel:${p.ownerPhone.replace(/[^\d+]/g, '')}`} className="whitespace-nowrap text-brand-green hover:underline">{p.ownerPhone}</a>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-stone-300">—</span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-stone-800">{formatPrice(p.price, p.operation)}</td>
                       <td className="px-4 py-3 text-stone-600">

@@ -30,6 +30,9 @@ export interface Property {
   /** Ubicación en el mapa (WGS84). Opcional: sin ella el inmueble no sale en el mapa. */
   lat?: number | null
   lon?: number | null
+  /** Datos INTERNOS del propietario: solo los ve la agencia en el panel; nunca se sirven a la web pública. */
+  ownerName?: string | null
+  ownerPhone?: string | null
   energyRating?: string | null
   energyValue?: number | null
   emissionsRating?: string | null
