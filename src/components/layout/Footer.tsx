@@ -62,7 +62,13 @@ export function Footer() {
         </div>
 
         <div className="flex flex-col gap-2 border-t border-white/15 pt-6 text-xs text-white/55 lg:flex-row lg:items-center lg:justify-between">
-          <span>© {new Date().getFullYear()} {AGENT.name}. Todos los derechos reservados.</span>
+          <span className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <span>© {new Date().getFullYear()} {AGENT.name}. Todos los derechos reservados.</span>
+            {/* Acceso directo al panel de administración (la entrada sigue protegida por contraseña) */}
+            <Link href="/admin" rel="nofollow" className="font-medium text-white/80 underline underline-offset-4 transition-colors hover:text-brand-yellow">
+              Panel admin
+            </Link>
+          </span>
           <p className="text-[11px] leading-snug lg:text-right">
             La información de esta web tiene carácter meramente informativo y no es contractual.
           </p>
