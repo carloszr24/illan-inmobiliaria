@@ -424,3 +424,20 @@ export async function seedDemoProperties(): Promise<number> {
     return DEMO_PROPERTIES.length
   })
 }
+
+/**
+ * Elimina SOLO los inmuebles marcados como ejemplo (demo), con sus fotos subidas si las hubiera.
+ * Los inmuebles reales no se tocan. Devuelve cuántos se han eliminado.
+ */
+export async function deleteDemoProperties(): Promise<number> {
+  const repo = propertyRepo()
+  const demos = (await repo.list()).filter((p) => p.demo)
+  let removed = 0
+  for (const demo of demos) {
+    if (await repo.withLock(() => repo.remove(demo.id))) removed++
+    await imageStore()
+      .deleteAllFor(demo.id)
+      .catch((e) => console.error('[properties] No se pudieron borrar las fotos de', demo.id, e))
+  }
+  return removed
+}

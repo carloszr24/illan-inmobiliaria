@@ -183,6 +183,9 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
   const [reordering, setReordering] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [seedError, setSeedError] = useState<string | null>(null)
+  const [demoConfirm, setDemoConfirm] = useState(false)
+  const [removingDemo, setRemovingDemo] = useState(false)
+  const [demoError, setDemoError] = useState<string | null>(null)
   // Peso de las fotos ya subidas (el navegador no lo sabe: se mide con measurePhoto). -1 = desconocido
   const [photoSizes, setPhotoSizes] = useState<Record<string, number>>({})
 
@@ -366,6 +369,24 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
     }
   }
 
+  const demoCount = properties.filter((p) => p.demo).length
+
+  const removeDemo = async () => {
+    setRemovingDemo(true)
+    setDemoError(null)
+    try {
+      const res = await fetch('/api/admin/seed-demo', { method: 'DELETE', credentials: 'include' })
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(body.error || 'No se pudieron eliminar los ejemplos')
+      setDemoConfirm(false)
+      await fetchProperties()
+    } catch (e) {
+      setDemoError(e instanceof Error ? e.message : 'No se pudieron eliminar los ejemplos')
+    } finally {
+      setRemovingDemo(false)
+    }
+  }
+
   const removeItem = (id: string) => {
     const item = imageItems.find((x) => x.id === id)
     if (item?.kind === 'new') URL.revokeObjectURL(item.previewUrl)
@@ -522,7 +543,19 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
           <h1 className="text-3xl text-stone-900">Propiedades</h1>
           <p className="mt-1 text-sm text-stone-500">Gestiona los inmuebles que se muestran en la web.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {demoCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setDemoError(null)
+                setDemoConfirm(true)
+              }}
+              className="text-sm text-red-600 transition-colors hover:text-red-800"
+            >
+              Eliminar ejemplos ({demoCount})
+            </button>
+          )}
           <button type="button" onClick={logout} className="text-sm text-stone-500 transition-colors hover:text-stone-900">
             Cerrar sesión
           </button>
@@ -858,6 +891,24 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
           </div>
         )}
       </div>
+
+      {demoConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-green-deep/60 px-6" role="dialog" aria-modal="true" onMouseDown={(e) => e.target === e.currentTarget && !removingDemo && setDemoConfirm(false)}>
+          <div className="w-full max-w-sm rounded-xl bg-white p-7 shadow-2xl">
+            <h3 className="mb-2 text-xl text-stone-900">¿Eliminar los ejemplos?</h3>
+            <p className="mb-6 text-sm text-stone-500">
+              Se borrarán los {demoCount} inmuebles de ejemplo (con sus fotos) y los contactos de ejemplo. Tus propiedades y contactos reales no se tocan. Esta acción no se puede deshacer.
+            </p>
+            {demoError && <p role="alert" className="mb-4 text-sm text-red-600">{demoError}</p>}
+            <div className="flex items-center gap-4">
+              <button type="button" onClick={removeDemo} disabled={removingDemo} className="inline-flex items-center justify-center rounded-md bg-red-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
+                {removingDemo ? 'Eliminando…' : 'Eliminar ejemplos'}
+              </button>
+              <button type="button" onClick={() => setDemoConfirm(false)} disabled={removingDemo} className="text-sm text-stone-500 hover:text-stone-900 disabled:opacity-60">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirm && confirmTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-green-deep/60 px-6" role="dialog" aria-modal="true" onMouseDown={(e) => e.target === e.currentTarget && setConfirm(null)}>

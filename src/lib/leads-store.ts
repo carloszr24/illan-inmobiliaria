@@ -98,6 +98,15 @@ export async function seedDemoLeads(): Promise<number> {
   })
 }
 
+/** Elimina SOLO los contactos marcados como ejemplo (demo). Devuelve cuántos se han eliminado. */
+export async function deleteDemoLeads(): Promise<number> {
+  const repo = leadRepo()
+  const demos = (await repo.list()).filter((l) => l.demo)
+  let removed = 0
+  for (const demo of demos) if (await repo.withLock(() => repo.remove(demo.id))) removed++
+  return removed
+}
+
 export const isLeadSource = (v: string): v is LeadSource => (LEAD_SOURCES as string[]).includes(v)
 export const isLeadIntent = (v: string): v is LeadIntent => (LEAD_INTENTS as string[]).includes(v)
 export const isLeadPriority = (v: string): v is LeadPriority => (LEAD_PRIORITIES as string[]).includes(v)
