@@ -196,6 +196,13 @@ function AdminLeadsPanel() {
 
       {error && <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
+      {leads.some((l) => l.notifyStatus === 'failed') && (
+        <p role="status" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <strong>Hay avisos por email que no se pudieron enviar.</strong> Los contactos están guardados aquí, pero revisa la
+          configuración de Resend (clave, remitente y dominio verificado): pasa el ratón por la etiqueta roja para ver el motivo.
+        </p>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => <div key={i} className="skeleton h-32 w-full rounded-xl" />)}
@@ -218,6 +225,12 @@ function AdminLeadsPanel() {
                       <h2 className="font-display text-xl font-semibold text-stone-900">{lead.fullName}</h2>
                       <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', STATUS_STYLES[lead.status])}>{LEAD_STATUS_LABELS[lead.status]}</span>
                       {lead.demo && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">Ejemplo</span>}
+                      {lead.status === 'nuevo' && Date.now() - lead.createdAt.getTime() > 24 * 3600 * 1000 && (
+                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">Sin atender +24 h</span>
+                      )}
+                      {lead.notifyStatus === 'sent' && <span className="rounded bg-brand-green-tint px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-green-dark" title="El aviso por email llegó al equipo">Aviso enviado</span>}
+                      {lead.notifyStatus === 'failed' && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700" title={lead.notifyError || 'El aviso por email falló'}>Aviso por email falló</span>}
+                      {lead.notifyStatus === 'skipped' && <span className="rounded bg-stone-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600" title={lead.notifyError || 'Resend no está configurado'}>Sin aviso por email</span>}
                     </div>
                     <p className="mt-1 text-xs text-stone-500" title={dateFmt.format(lead.createdAt)}>
                       {timeAgo(lead.createdAt)} · {LEAD_SOURCE_LABELS[lead.source]} · Quiere {LEAD_INTENT_LABELS[lead.intent].toLowerCase()}

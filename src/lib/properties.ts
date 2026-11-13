@@ -1,8 +1,7 @@
-import { promises as fs } from 'fs'
-import path from 'path'
 import { DEMO_PROPERTIES } from '@/data/demo-properties'
 import type { Property } from '@/types'
-import { readCollection, uploadsDir, withCollection, writeCollection } from '@/lib/store/json-store'
+import { imageStore, propertyRepo } from '@/lib/store'
+import { isUniqueViolation, type PropertyRecord } from '@/lib/store/records'
 import { normalizeExtraIds, propertyHasExtra, syncLegacyExtraFields } from '@/lib/property-extras'
 import {
   DEFAULT_PROVINCE,
@@ -13,10 +12,6 @@ import {
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
 } from '@/lib/utils'
-
-const COLLECTION = 'properties'
-
-type PropertyRecord = Omit<Property, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string }
 
 const toProperty = (r: PropertyRecord): Property => ({
   ...r,
@@ -34,18 +29,8 @@ const sortForDisplay = (list: PropertyRecord[]) =>
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 
-const DEMO_COORDS = new Map(DEMO_PROPERTIES.map((p) => [p.id, { lat: p.lat ?? null, lon: p.lon ?? null }]))
-
-const load = async (): Promise<PropertyRecord[]> => {
-  const records = await readCollection<PropertyRecord>(COLLECTION, () => DEMO_PROPERTIES as PropertyRecord[])
-  // Los ejemplos guardados antes de existir el mapa no tienen el campo: se completa al leer.
-  // (Si alguien borra la ubicación desde el panel queda en null y no se vuelve a rellenar.)
-  return records.map((r) => {
-    if (!r.demo || r.lat !== undefined) return r
-    const c = DEMO_COORDS.get(r.id)
-    return c && c.lat != null && c.lon != null ? { ...r, lat: c.lat, lon: c.lon } : r
-  })
-}
+/** Lectura del catálogo desde el motor activo (JSON local o Supabase). */
+const load = (): Promise<PropertyRecord[]> => propertyRepo().list()
 
 // ─── Lectura ───────────────────────────────────────────────────────────────────
 
@@ -345,81 +330,98 @@ export class PropertyError extends Error {
 }
 
 export async function createProperty(input: PropertyInput): Promise<Property> {
-  return withCollection(COLLECTION, async () => {
-    const records = await load()
-    const capError = featuredLimitError(records, input.featured, null)
-    if (capError) throw new PropertyError(capError)
+  const repo = propertyRepo()
+  return repo.withLock(async () => {
+    for (let attempt = 0; ; attempt++) {
+      const records = await repo.list()
+      const capError = featuredLimitError(records, input.featured, null)
+      if (capError) throw new PropertyError(capError)
 
-    const now = new Date().toISOString()
-    const record: PropertyRecord = {
-      id: uniqueId(slugify(input.title), records),
-      ref: nextRef(records),
-      ...applyInput(input),
-      archived: false,
-      sortOrder: records.reduce((acc, p) => Math.max(acc, p.sortOrder ?? 0), -1) + 1,
-      createdAt: now,
-      updatedAt: now,
+      const now = new Date().toISOString()
+      const record: PropertyRecord = {
+        id: uniqueId(slugify(input.title), records),
+        ref: nextRef(records),
+        ...applyInput(input),
+        archived: false,
+        sortOrder: records.reduce((acc, p) => Math.max(acc, p.sortOrder ?? 0), -1) + 1,
+        createdAt: now,
+        updatedAt: now,
+      }
+      try {
+        await repo.insert(record)
+        return toProperty(record)
+      } catch (e) {
+        // Dos altas simultáneas pueden generar el mismo id o referencia: se reintenta con datos frescos
+        if (isUniqueViolation(e) && attempt < 4) continue
+        throw e
+      }
     }
-    await writeCollection(COLLECTION, [...records, record])
-    return toProperty(record)
   })
 }
 
 export async function updateProperty(id: string, input: PropertyInput): Promise<Property> {
-  return withCollection(COLLECTION, async () => {
-    const records = await load()
-    const index = records.findIndex((p) => p.id === id)
-    if (index < 0) throw new PropertyError('No encontrada', 404)
+  const repo = propertyRepo()
+  return repo.withLock(async () => {
+    const records = await repo.list()
+    const current = records.find((p) => p.id === id)
+    if (!current) throw new PropertyError('No encontrada', 404)
     const capError = featuredLimitError(records, input.featured, id)
     if (capError) throw new PropertyError(capError)
 
     const updated: PropertyRecord = {
-      ...records[index],
+      ...current,
       ...applyInput(input),
-      featured: records[index].archived ? false : input.featured,
+      featured: current.archived ? false : input.featured,
       updatedAt: new Date().toISOString(),
     }
-    const next = [...records]
-    next[index] = updated
-    await writeCollection(COLLECTION, next)
+    if (!(await repo.update(updated))) throw new PropertyError('No encontrada', 404)
     return toProperty(updated)
   })
 }
 
 export async function setPropertyArchived(id: string, archived: boolean): Promise<Property> {
-  return withCollection(COLLECTION, async () => {
-    const records = await load()
-    const index = records.findIndex((p) => p.id === id)
-    if (index < 0) throw new PropertyError('No encontrada', 404)
+  const repo = propertyRepo()
+  return repo.withLock(async () => {
+    const current = (await repo.list()).find((p) => p.id === id)
+    if (!current) throw new PropertyError('No encontrada', 404)
     const updated: PropertyRecord = {
-      ...records[index],
+      ...current,
       archived,
-      featured: archived ? false : records[index].featured,
+      featured: archived ? false : current.featured,
       updatedAt: new Date().toISOString(),
     }
-    const next = [...records]
-    next[index] = updated
-    await writeCollection(COLLECTION, next)
+    if (!(await repo.update(updated))) throw new PropertyError('No encontrada', 404)
     return toProperty(updated)
   })
 }
 
 export async function reorderProperties(ids: string[]): Promise<void> {
-  return withCollection(COLLECTION, async () => {
-    const records = await load()
-    const position = new Map(ids.map((id, i) => [id, i]))
-    const next = records.map((p) => (position.has(p.id) ? { ...p, sortOrder: position.get(p.id)! } : p))
-    await writeCollection(COLLECTION, next)
-  })
+  const repo = propertyRepo()
+  await repo.withLock(() => repo.setSortOrders(ids))
 }
 
 export async function deleteProperty(id: string): Promise<void> {
-  await withCollection(COLLECTION, async () => {
-    const records = await load()
-    if (!records.some((p) => p.id === id)) throw new PropertyError('No encontrada', 404)
-    await writeCollection(COLLECTION, records.filter((p) => p.id !== id))
+  const repo = propertyRepo()
+  await repo.withLock(async () => {
+    if (!(await repo.remove(id))) throw new PropertyError('No encontrada', 404)
   })
-  if (/^[a-z0-9-]+$/.test(id)) {
-    await fs.rm(path.join(/*turbopackIgnore: true*/ uploadsDir(), id), { recursive: true, force: true })
-  }
+  // Las fotos subidas se borran con el inmueble (si falla, queda constancia en el log pero no se bloquea el borrado)
+  await imageStore()
+    .deleteAllFor(id)
+    .catch((e) => console.error('[properties] No se pudieron borrar las fotos de', id, e))
+}
+
+/** Carga los inmuebles de ejemplo, solo si el catálogo está vacío. Devuelve cuántos se han creado. */
+export async function seedDemoProperties(): Promise<number> {
+  const repo = propertyRepo()
+  return repo.withLock(async () => {
+    if ((await repo.list()).length > 0) {
+      throw new PropertyError('Los ejemplos solo se cargan en un catálogo vacío', 409)
+    }
+    const now = new Date().toISOString()
+    for (const demo of DEMO_PROPERTIES) {
+      await repo.insert({ ...(demo as PropertyRecord), createdAt: now, updatedAt: now })
+    }
+    return DEMO_PROPERTIES.length
+  })
 }

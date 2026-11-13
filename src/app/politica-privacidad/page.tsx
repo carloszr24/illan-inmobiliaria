@@ -35,7 +35,9 @@ export default function PoliticaPrivacidadPage() {
       <h2>4. Destinatarios</h2>
       <p>
         No cedemos tus datos a terceros salvo obligación legal. Pueden acceder a ellos proveedores que prestan servicios
-        a la agencia (por ejemplo, de alojamiento web) en calidad de encargados del tratamiento.
+        a la agencia (por ejemplo, de alojamiento web, base de datos y envío de correo electrónico) en calidad de encargados del
+        tratamiento. Algunos pueden tratar los datos fuera del Espacio Económico Europeo; en ese caso se aplican las garantías
+        previstas en el RGPD.
       </p>
 
       <h2>5. Conservación</h2>

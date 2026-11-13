@@ -10,6 +10,7 @@ import {
   updateLead,
   type LeadPatch,
 } from '@/lib/leads-store'
+import { sendLeadNotification } from '@/lib/lead-notification'
 import { checkRateLimit } from '@/lib/rate-limiter'
 
 const unauthorized = () => NextResponse.json({ error: 'No autorizado' }, { status: 401 })
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
 /** Público: formulario de contacto y de valoración. Limitado por IP y con campo trampa anti-bots. */
 export async function POST(request: NextRequest) {
-  const rate = checkRateLimit(`leads:${getClientIp(request)}`, {
+  const rate = await checkRateLimit(`leads:${getClientIp(request)}`, {
     maxAttempts: 5,
     windowMinutes: 60,
     blockMinutes: 60,
@@ -59,8 +60,9 @@ export async function POST(request: NextRequest) {
   const source = body.source === 'web_valoracion' ? 'web_valoracion' : 'web_contacto'
   const intent = ['comprar', 'vender', 'alquilar'].includes(String(body.intent)) ? (body.intent as 'comprar' | 'vender' | 'alquilar') : 'otro'
 
+  let lead
   try {
-    await createLead({
+    lead = await createLead({
       fullName,
       phone,
       email,
@@ -71,10 +73,21 @@ export async function POST(request: NextRequest) {
       propertyRef: clip(body.propertyRef, 60) || null,
       saleTimeline: clip(body.saleTimeline, 80) || null,
     })
-    return NextResponse.json({ ok: true }, { status: 201 })
-  } catch {
+  } catch (error) {
+    console.error('[leads] No se pudo guardar el contacto:', error)
     return NextResponse.json({ error: 'No se pudo guardar el mensaje' }, { status: 500 })
   }
+
+  // El contacto ya está guardado: el aviso por email nunca puede hacer fallar la petición.
+  // Se espera al envío (en serverless no se puede dejar en segundo plano) y se anota el resultado
+  // en el propio contacto, para que un fallo de Resend sea visible en el panel.
+  const result = await sendLeadNotification(lead).catch((e) => ({ status: 'failed' as const, error: String(e) }))
+  if (result.status !== 'sent') console.error('[leads] Aviso por email', result.status, '-', result.error)
+  await updateLead(lead.id, { notifyStatus: result.status, notifyError: result.error?.slice(0, 300) ?? null }).catch((e) =>
+    console.error('[leads] No se pudo anotar el resultado del aviso:', e)
+  )
+
+  return NextResponse.json({ ok: true }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {

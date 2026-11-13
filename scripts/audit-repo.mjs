@@ -35,9 +35,9 @@ const SECRET_PATTERNS = [
   [/gh[pousr]_[A-Za-z0-9]{30,}/, 'token de GitHub'],
   [/github_pat_[A-Za-z0-9_]{30,}/, 'token personal de GitHub'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'clave privada'],
-  [/(service_role|SERVICE_ROLE_KEY)/, 'referencia a service_role de Supabase'],
+  [/sb_secret_[A-Za-z0-9_-]{20,}/, 'clave secreta nueva de Supabase (sb_secret_…)'],
 ]
-const ASSIGNMENT = /\b[A-Z0-9_]*(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|PIN)\b\s*[=:]\s*["']?([^\s"'#]{6,})/g
+const ASSIGNMENT = /\b[A-Z0-9_]*(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|SERVICE_ROLE_KEY|PIN)\b\s*[=:]\s*["']?([^\s"'#]{6,})/g
 
 for (const file of files) {
   const rel = relative(root, file)

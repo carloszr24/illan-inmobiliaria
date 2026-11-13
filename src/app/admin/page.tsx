@@ -61,6 +61,35 @@ const emptyForm = {
 
 type FormState = typeof emptyForm
 
+/**
+ * Reduce la foto en el navegador antes de subirla (lado mayor 2000 px, WebP): una foto de móvil de 6-10 MB
+ * baja a unos cientos de KB, así cabe sobradamente en el límite de 4 MB de la plataforma de hosting.
+ * Si algo falla se sube el archivo original.
+ */
+async function shrinkImage(file: File): Promise<File> {
+  const MAX_SIDE = 2000
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+    if (scale === 1 && file.size <= 1.5 * 1024 * 1024) {
+      bitmap.close()
+      return file
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.85))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' })
+  } catch {
+    return file
+  }
+}
+
 const normalizeProperty = (p: Property): Property => ({
   ...p,
   createdAt: new Date(p.createdAt as unknown as string),
@@ -111,6 +140,8 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const [reordering, setReordering] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+  const [seedError, setSeedError] = useState<string | null>(null)
 
   const fetchProperties = async () => {
     try {
@@ -236,18 +267,38 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const addFiles = (files: FileList | null) => {
+  const addFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
+    const list = Array.from(files) // copia inmediata: el input se vacía justo después
     const allowed = new Set(['image/jpeg', 'image/png', 'image/webp'])
     const next: ImageItem[] = []
     const rejected: string[] = []
-    for (const f of Array.from(files)) {
-      if (!allowed.has(f.type)) rejected.push(`${f.name}: formato no admitido (usa JPG, PNG o WebP)`)
-      else if (f.size > 5 * 1024 * 1024) rejected.push(`${f.name}: pesa más de 5 MB`)
+    for (const original of list) {
+      if (!allowed.has(original.type)) {
+        rejected.push(`${original.name}: formato no admitido (usa JPG, PNG o WebP)`)
+        continue
+      }
+      const f = await shrinkImage(original)
+      if (f.size > 4 * 1024 * 1024) rejected.push(`${original.name}: pesa más de 4 MB incluso reducida`)
       else next.push({ id: crypto.randomUUID(), kind: 'new', file: f, previewUrl: URL.createObjectURL(f) })
     }
     setImageError(rejected.length ? rejected.join(' · ') : null)
     if (next.length) setImageItems((prev) => [...prev, ...next].slice(0, MAX_PROPERTY_IMAGES))
+  }
+
+  const seedDemo = async () => {
+    setSeeding(true)
+    setSeedError(null)
+    try {
+      const res = await fetch('/api/admin/seed-demo', { method: 'POST', credentials: 'include' })
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(body.error || 'No se pudieron cargar los ejemplos')
+      await fetchProperties()
+    } catch (e) {
+      setSeedError(e instanceof Error ? e.message : 'No se pudieron cargar los ejemplos')
+    } finally {
+      setSeeding(false)
+    }
   }
 
   const removeItem = (id: string) => {
@@ -283,7 +334,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
 
   const deleteRemovedImages = async (finalUrls: string[]) => {
     for (const url of initialImageUrls.filter((u) => !finalUrls.includes(u))) {
-      if (!url.startsWith('/media/')) continue // solo se borran las fotos subidas desde el panel
+      if (url.startsWith('/images/')) continue // ilustraciones propias del sitio: no se borran
       await fetch('/api/uploads/property-image', {
         method: 'DELETE',
         credentials: 'include',
@@ -516,7 +567,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
               </div>
               <div className="rounded-lg border border-dashed border-stone-300 p-4">
                 <p className="mb-3 text-xs text-stone-500">
-                  Hasta {MAX_PROPERTY_IMAGES} imágenes (JPG, PNG o WebP, máx. 5 MB cada una). La primera es la principal; arrastra para reordenar.
+                  Hasta {MAX_PROPERTY_IMAGES} imágenes (JPG, PNG o WebP). Las fotos grandes se reducen solas al añadirlas. La primera es la principal; arrastra para reordenar.
                 </p>
                 {imageError && <p className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">{imageError}</p>}
                 {imageItems.length === 0 ? (
@@ -650,7 +701,13 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
         ) : properties.length === 0 ? (
           <div className="p-12 text-center">
             <p className="mb-4 text-stone-500">Todavía no hay propiedades.</p>
-            <button type="button" onClick={openCreate} className="btn-primary px-5 py-2.5">Crear la primera</button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button type="button" onClick={openCreate} className="btn-primary px-5 py-2.5">Crear la primera</button>
+              <button type="button" onClick={seedDemo} disabled={seeding} className="btn-outline px-5 py-2.5 disabled:opacity-60">
+                {seeding ? 'Cargando…' : 'Cargar inmuebles de ejemplo'}
+              </button>
+            </div>
+            {seedError && <p role="alert" className="mt-4 text-sm text-red-600">{seedError}</p>}
           </div>
         ) : visible.length === 0 ? (
           <div className="p-12 text-center text-stone-500">No hay propiedades que coincidan.</div>

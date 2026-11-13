@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request)
-  const rate = checkLoginRateLimit(ip)
+  const rate = await checkLoginRateLimit(ip)
   if (!rate.ok) {
     return NextResponse.json(
       { error: `Demasiados intentos. Espera ${Math.ceil(rate.retryAfterSec / 60)} minutos e inténtalo de nuevo.` },
@@ -44,14 +44,14 @@ export async function POST(request: Request) {
     const password = typeof body?.password === 'string' ? body.password : ''
 
     if (!verifyAdminPassword(password)) {
-      recordLoginFailure(ip)
+      await recordLoginFailure(ip)
       return NextResponse.json({ ok: false, error: 'Contraseña incorrecta' }, { status: 401 })
     }
 
     const token = createAdminSessionToken()
     if (!token) return NextResponse.json({ error: 'Configuración de admin incompleta' }, { status: 503 })
 
-    clearLoginAttempts(ip)
+    await clearLoginAttempts(ip)
     const res = NextResponse.json({ ok: true })
     res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions(getAdminSessionMaxAgeSeconds()))
     return res

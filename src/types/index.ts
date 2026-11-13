@@ -62,6 +62,9 @@ export type LeadStatus =
 
 export type LeadPriority = 'alta' | 'media' | 'baja'
 
+/** Resultado del aviso por email de un contacto nuevo. */
+export type NotifyStatus = 'sent' | 'failed' | 'skipped'
+
 export interface Lead {
   id: string
   fullName: string
@@ -77,6 +80,9 @@ export interface Lead {
   assignedTo?: string | null
   firstResponseAt?: Date | null
   lastContactAt?: Date | null
+  /** Si el aviso por email al equipo se envió, falló o no estaba configurado. */
+  notifyStatus?: NotifyStatus | null
+  notifyError?: string | null
   demo?: boolean
   createdAt: Date
   updatedAt: Date

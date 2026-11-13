@@ -47,8 +47,8 @@ export function adminAccessDeniedResponse(status = 403): NextResponse {
   return applyAdminSecurityHeaders(NextResponse.json({ error: 'Acceso no permitido' }, { status }))
 }
 
-export function checkLoginRateLimit(ip: string): { ok: true } | { ok: false; retryAfterSec: number } {
-  const status = isRateLimitBlocked(loginKey(ip))
+export async function checkLoginRateLimit(ip: string): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  const status = await isRateLimitBlocked(loginKey(ip))
   if (!status.blocked || !status.retryAfter) return { ok: true }
   return {
     ok: false,
@@ -56,16 +56,17 @@ export function checkLoginRateLimit(ip: string): { ok: true } | { ok: false; ret
   }
 }
 
-export function recordLoginFailure(ip: string): void {
-  checkRateLimit(loginKey(ip), {
-    maxAttempts: MAX_LOGIN_ATTEMPTS,
+export async function recordLoginFailure(ip: string): Promise<void> {
+  await checkRateLimit(loginKey(ip), {
+    // El contador se supera con MAX-1 para que el bloqueo empiece al fallar el intento nº MAX (y no al siguiente)
+    maxAttempts: MAX_LOGIN_ATTEMPTS - 1,
     windowMinutes: LOGIN_WINDOW_MINUTES,
     blockMinutes: LOGIN_BLOCK_MINUTES,
   })
 }
 
-export function clearLoginAttempts(ip: string): void {
-  resetRateLimit(loginKey(ip))
+export async function clearLoginAttempts(ip: string): Promise<void> {
+  await resetRateLimit(loginKey(ip))
 }
 
 export function getAdminCookieOptions(maxAgeSeconds: number) {

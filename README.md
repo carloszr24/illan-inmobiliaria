@@ -29,9 +29,9 @@ npm run dev        # http://localhost:3000
 
 Acceso con contraseña única. Tras 5 intentos fallidos, la IP queda bloqueada 30 minutos. La sesión es una cookie firmada, `HttpOnly` y `SameSite=Strict`, y caduca a las 12 h.
 
-## Dónde se guardan los datos
+## Dónde se guardan los datos (motor local)
 
-Todo vive en la carpeta `data/` (o en `ILLAN_DATA_DIR` si la defines):
+Sin Supabase configurado, todo vive en la carpeta `data/` (o en `ILLAN_DATA_DIR` si la defines):
 
 ```
 data/properties.json   propiedades
@@ -40,6 +40,57 @@ data/uploads/          fotos subidas desde el panel
 ```
 
 **Haz copia de seguridad de esa carpeta.** No se versiona (`.gitignore`). Está pensada para **un solo servidor con disco persistente** (VPS, Docker con volumen…). Si algún día hace falta escalar o usar una plataforma sin disco persistente, solo habría que sustituir `src/lib/store/json-store.ts` por una base de datos; el resto de la app no la toca.
+
+## Base de datos, fotos y avisos por email (Supabase + Resend)
+
+La web tiene **dos motores de datos intercambiables**. Se elige solo, según las variables de entorno:
+
+| Motor | Cuándo se usa | Dónde guarda |
+| --- | --- | --- |
+| **Local (JSON)** | Faltan `SUPABASE_URL` o `SUPABASE_SERVICE_ROLE_KEY` | Carpeta `data/` (en Vercel, una carpeta temporal: los cambios se pierden al reiniciar) |
+| **Supabase** | Están las dos variables | Postgres (propiedades, contactos, límite de intentos) y Storage (fotos) |
+
+Además, si existe `RESEND_API_KEY`, cada contacto nuevo genera un **correo de aviso** al equipo. El resultado (enviado / falló / sin configurar) se guarda en el propio contacto y se ve en **/admin → Contactos**, para que un fallo no pase desapercibido.
+
+### Variables de entorno (solo nombres; los valores van en `.env.local` o en Vercel, nunca en el código)
+
+| Variable | Para qué sirve | Obligatoria |
+| --- | --- | --- |
+| `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET` | Acceso al panel (≥ 32 caracteres para el secreto) | Sí |
+| `SUPABASE_URL` | `https://<proyecto>.supabase.co` | Para usar Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave `service_role` (o la *secret key* nueva). **Solo servidor**: jamás con prefijo `NEXT_PUBLIC_` | Para usar Supabase |
+| `RESEND_API_KEY` | Clave de la API de Resend | Para los avisos |
+| `RESEND_FROM_EMAIL` | Remitente, p. ej. `ILLAN Inmobiliaria <avisos@tudominio.com>` | Recomendada |
+| `LEADS_NOTIFICATION_EMAIL` | Destinatarios (varios, separados por coma). Por defecto, el correo de contacto de la web | No |
+
+En Vercel márcalas como **Sensitive** y define `SUPABASE_*`, `RESEND_*` y `ADMIN_*` en Production **y** Preview. Después de cambiar variables hay que hacer *Redeploy*.
+
+### Puesta en marcha: quién hace qué
+
+| # | Paso | Quién |
+| --- | --- | --- |
+| 1 | Crear cuenta y proyecto **nuevo** en Supabase, **región de la UE**. No reutilizar el proyecto de otro cliente. Guardar la contraseña de la base de datos | Persona |
+| 2 | Supabase → *SQL Editor* → pegar y ejecutar **`supabase/schema.sql`** entero (es idempotente; crea tablas, seguridad, límite de intentos y el bucket de fotos) | Persona |
+| 3 | Supabase → *Project Settings → API*: copiar la URL y la clave `service_role` a Vercel (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) | Persona |
+| 4 | Crear cuenta en **Resend** con el correo que recibirá los avisos (para las pruebas iniciales, con `onboarding@resend.dev`, solo llegan al titular de la cuenta) | Persona |
+| 5 | Para producción: *Domains → Add domain* en Resend y añadir los registros DNS (SPF, DKIM, DMARC) donde esté el DNS del dominio; esperar a «Verified» | Persona |
+| 6 | Vercel: añadir `RESEND_API_KEY`, `RESEND_FROM_EMAIL` y `LEADS_NOTIFICATION_EMAIL`; *Redeploy* | Persona |
+| 7 | Entrar en `/admin`: si el catálogo está vacío aparece el botón **Cargar inmuebles de ejemplo** (opcional) | Persona |
+| 8 | Prueba de punta a punta: crear una propiedad con foto, enviar el formulario de contacto, comprobar que llega el correo (mira también *spam*) y que el contacto muestra «Aviso enviado» | Ambos |
+
+### Seguridad del diseño
+
+- **RLS activada sin políticas**: la clave pública (`anon`) no puede leer ni escribir nada en las tablas; los datos del propietario y los contactos no se pueden consultar saltándose la web. Todo el acceso es desde el servidor con la clave de servicio.
+- **El navegador nunca habla con Supabase.** Las fotos se suben a través de la API de la web (se reducen en el navegador, se optimizan a WebP en el servidor y se guardan en el bucket público `property-images`).
+- El **límite de intentos** (login: 5 fallos → 30 min de bloqueo; formularios: 5 por hora) es persistente y atómico en Supabase, y cae a memoria si Supabase no responde.
+- Si Resend falla, **el contacto ya está guardado**; el fallo queda anotado en el contacto y no se pierde ningún aviso.
+- Al borrar una propiedad se borran también sus fotos de Storage.
+
+### Qué está comprobado y qué falta
+
+- **Comprobado**: el motor JSON y el motor Supabase superan el mismo conjunto de 35-36 pruebas de API (alta, duplicados, fotos, archivar, reordenar, borrar, contactos, límite de intentos, datos del propietario ocultos al público). El motor Supabase se probó contra un servidor simulado con el SDK real, y **`supabase/schema.sql` se ejecutó en un PostgreSQL 18 real** (dos veces, sin errores) verificando RLS, restricciones y las funciones del límite de intentos. El camino de error de Resend (clave inválida) también.
+- **Falta con cuentas reales**: la primera conexión a un proyecto de Supabase real (comportamiento de PostgREST/Storage en vivo), y el envío correcto de un correo con Resend (dominio verificado y llegada a la bandeja principal). Hasta hacer el paso 8 no hay que dar el correo por bueno.
+- **Límites a tener en cuenta**: los planes gratuitos tienen restricciones (pausa por inactividad en Supabase, sin copias descargables automáticas; cuota mensual de correos en Resend): revisa el plan vigente. Las copias de seguridad hay que organizarlas (Supabase → *Database → Backups*, o `pg_dump`) y el catálogo se lee con un máximo de 1000 filas por consulta.
 
 ### Mapa de propiedades
 
