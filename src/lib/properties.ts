@@ -6,7 +6,6 @@ import { normalizeExtraIds, propertyHasExtra, syncLegacyExtraFields } from '@/li
 import {
   DEFAULT_PROVINCE,
   MAX_FEATURED_ON_HOME,
-  MAX_PROPERTY_IMAGES,
   PROPERTY_OPERATIONS,
   PROPERTY_PROVINCES,
   PROPERTY_STATUSES,
@@ -193,7 +192,7 @@ export function parsePropertyInput(body: unknown): { value: PropertyInput } | { 
   if (!(PROPERTY_PROVINCES as readonly string[]).includes(province)) return { error: 'Provincia no válida' }
 
   const images = Array.isArray(b.images)
-    ? b.images.map(String).filter((u) => u.startsWith('/') || /^https?:\/\//i.test(u)).slice(0, MAX_PROPERTY_IMAGES)
+    ? b.images.map(String).filter((u) => u.startsWith('/') || /^https?:\/\//i.test(u))
     : []
 
   const ownerName = text(b.ownerName)?.slice(0, 120) ?? null

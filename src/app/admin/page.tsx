@@ -4,7 +4,9 @@ import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { AdminAuthGuard } from '@/components/admin/AdminAuthGuard'
 import { ExtrasDropdown } from '@/components/admin/ExtrasDropdown'
+import { DescriptionTips, PhotoTips, PhotoWeightTag, TitleTips } from '@/components/admin/FormTips'
 import { LocationPicker } from '@/components/admin/LocationPicker'
+import { sameTitle } from '@/lib/form-tips'
 import { getPropertyExtras, type PropertyExtraId } from '@/lib/property-extras'
 import type { Property } from '@/types'
 import {
@@ -12,7 +14,6 @@ import {
   DEFAULT_PROVINCE,
   formatPrice,
   MAX_FEATURED_ON_HOME,
-  MAX_PROPERTY_IMAGES,
   OPERATION_LABELS,
   parseImages,
   PROPERTY_OPERATIONS,
@@ -62,16 +63,19 @@ const emptyForm = {
 type FormState = typeof emptyForm
 
 /**
- * Reduce la foto en el navegador antes de subirla (lado mayor 2000 px, WebP): una foto de móvil de 6-10 MB
- * baja a unos cientos de KB, así cabe sobradamente en el límite de 4 MB de la plataforma de hosting.
- * Si algo falla se sube el archivo original.
+ * Reduce la foto en el navegador antes de subirla: lado mayor 1800 px y WebP, bajando la calidad hasta
+ * quedar por debajo de ~300 KB. Una foto de móvil de 6-10 MB pasa a unos cientos de KB: carga rápido y cabe
+ * sobradamente en el límite de la plataforma. Si algo falla (o el navegador no sabe codificar), se sube el original.
  */
 async function shrinkImage(file: File): Promise<File> {
-  const MAX_SIDE = 2000
+  const MAX_SIDE = 1800
+  const TARGET = 300 * 1024
+  const toBlob = (canvas: HTMLCanvasElement, type: string, quality: number) =>
+    new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
     const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
-    if (scale === 1 && file.size <= 1.5 * 1024 * 1024) {
+    if (scale === 1 && file.size <= TARGET) {
       bitmap.close()
       return file
     }
@@ -79,14 +83,51 @@ async function shrinkImage(file: File): Promise<File> {
     canvas.width = Math.round(bitmap.width * scale)
     canvas.height = Math.round(bitmap.height * scale)
     const ctx = canvas.getContext('2d')
-    if (!ctx) return file
+    if (!ctx) {
+      bitmap.close()
+      return file
+    }
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
     bitmap.close()
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.85))
-    if (!blob || blob.size >= file.size) return file
-    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' })
+
+    // WebP siempre que el navegador sepa codificarlo (el servidor lo guarda tal cual, sin recomprimir);
+    // JPEG solo como respaldo (Safari antiguo), y entonces el servidor lo convierte a WebP.
+    let best: Blob | null = null
+    for (const type of ['image/webp', 'image/jpeg']) {
+      let produced: Blob | null = null
+      for (const quality of [0.82, 0.74, 0.66, 0.58]) {
+        const blob = await toBlob(canvas, type, quality)
+        if (!blob || blob.type !== type) break // este navegador no codifica este formato
+        produced = blob
+        if (blob.size <= TARGET) break
+      }
+      if (produced) {
+        best = produced
+        break
+      }
+    }
+    if (!best || best.size >= file.size) return file
+    const ext = best.type === 'image/webp' ? 'webp' : 'jpg'
+    return new File([best], file.name.replace(/\.[^.]+$/, '') + '.' + ext, { type: best.type })
   } catch {
     return file
+  }
+}
+
+/**
+ * Peso en bytes de una foto ya subida. Primero una petición HEAD (con Supabase Storage basta); si el servidor no
+ * declara el tamaño (el motor local lo manda "en trozos"), se mide la propia foto, que el navegador ya tiene en
+ * caché por su miniatura. Devuelve -1 si no se puede saber.
+ */
+async function measurePhoto(url: string): Promise<number> {
+  try {
+    const head = await fetch(url, { method: 'HEAD' })
+    const length = Number(head.headers.get('content-length'))
+    if (head.ok && Number.isFinite(length) && length > 0) return length
+    const res = await fetch(url, { cache: 'force-cache' })
+    return res.ok ? (await res.blob()).size : -1
+  } catch {
+    return -1
   }
 }
 
@@ -142,6 +183,8 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
   const [reordering, setReordering] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [seedError, setSeedError] = useState<string | null>(null)
+  // Peso de las fotos ya subidas (el navegador no lo sabe: se mide con measurePhoto). -1 = desconocido
+  const [photoSizes, setPhotoSizes] = useState<Record<string, number>>({})
 
   const fetchProperties = async () => {
     try {
@@ -156,6 +199,26 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
   useEffect(() => {
     fetchProperties()
   }, [])
+
+  useEffect(() => {
+    const pending = imageItems.filter(
+      (i): i is Extract<ImageItem, { kind: 'existing' }> =>
+        i.kind === 'existing' && photoSizes[i.url] === undefined && !i.url.startsWith('/images/')
+    )
+    if (pending.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      for (const item of pending) {
+        const size = await measurePhoto(item.url)
+        if (cancelled) return
+        setPhotoSizes((prev) => ({ ...prev, [item.url]: size }))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageItems])
 
   const sorted = useMemo(
     () =>
@@ -184,6 +247,8 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
     })
 
   const canReorder = visibility === 'active' && !search.trim()
+  const duplicateTitle =
+    form.title.trim().length > 3 && properties.some((p) => p.id !== editingId && sameTitle(p.title, form.title))
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -283,7 +348,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
       else next.push({ id: crypto.randomUUID(), kind: 'new', file: f, previewUrl: URL.createObjectURL(f) })
     }
     setImageError(rejected.length ? rejected.join(' · ') : null)
-    if (next.length) setImageItems((prev) => [...prev, ...next].slice(0, MAX_PROPERTY_IMAGES))
+    if (next.length) setImageItems((prev) => [...prev, ...next])
   }
 
   const seedDemo = async () => {
@@ -491,6 +556,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                 <Field label="Título *" className="md:col-span-3">
                   <input name="title" value={form.title} onChange={handleChange} required className="field" placeholder="Ej: Piso de 3 dormitorios en el centro de Lugo" />
+                  <TitleTips title={form.title} duplicate={duplicateTitle} />
                 </Field>
                 <Field label="Precio (€) *">
                   <input name="price" value={form.price} onChange={handleChange} required type="number" min="0" className="field" />
@@ -540,6 +606,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
                 </Field>
                 <Field label="Descripción *" className="md:col-span-3">
                   <textarea name="description" value={form.description} onChange={handleChange} required rows={5} className="field resize-y" />
+                  <DescriptionTips description={form.description} />
                 </Field>
               </div>
             </section>
@@ -566,9 +633,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
                 </label>
               </div>
               <div className="rounded-lg border border-dashed border-stone-300 p-4">
-                <p className="mb-3 text-xs text-stone-500">
-                  Hasta {MAX_PROPERTY_IMAGES} imágenes (JPG, PNG o WebP). Las fotos grandes se reducen solas al añadirlas. La primera es la principal; arrastra para reordenar.
-                </p>
+                <PhotoTips count={imageItems.length} />
                 {imageError && <p className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">{imageError}</p>}
                 {imageItems.length === 0 ? (
                   <p className="py-8 text-center text-sm text-stone-400">Todavía no hay fotos.</p>
@@ -596,6 +661,7 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
                           {idx === 0 && (
                             <span className="absolute bottom-1.5 left-1.5 rounded bg-brand-yellow px-2 py-0.5 text-[10px] font-bold uppercase text-brand-green-deep">Principal</span>
                           )}
+                          <PhotoWeightTag bytes={item.kind === 'new' ? item.file.size : photoSizes[item.url]} />
                         </div>
                       </li>
                     ))}

@@ -27,9 +27,6 @@ export function parseImages(images: string): string[] {
 /** Máximo de inmuebles destacados en la página de inicio. */
 export const MAX_FEATURED_ON_HOME = 3
 
-/** Máximo de fotos por propiedad en el panel admin. */
-export const MAX_PROPERTY_IMAGES = 30
-
 export const PROPERTY_TYPES = ['piso', 'casa', 'local', 'terreno', 'oficina', 'garaje'] as const
 export const PROPERTY_OPERATIONS = ['venta', 'alquiler'] as const
 export const PROPERTY_STATUSES = ['disponible', 'reservado', 'vendido'] as const
