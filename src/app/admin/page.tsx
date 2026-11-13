@@ -13,12 +13,14 @@ import {
   cn,
   DEFAULT_PROVINCE,
   formatPrice,
+  hasPrice,
   MAX_FEATURED_ON_HOME,
   OPERATION_LABELS,
   parseImages,
   PROPERTY_OPERATIONS,
   PROPERTY_PROVINCES,
   PROPERTY_STATUSES,
+  PRICE_ON_REQUEST_LABEL,
   PROPERTY_TYPES,
   STATUS_BADGE_CLASSES_ADMIN,
   STATUS_LABELS,
@@ -32,6 +34,7 @@ type ImageItem =
 const emptyForm = {
   title: '',
   price: '',
+  priceOnRequest: false,
   location: '',
   province: DEFAULT_PROVINCE as string,
   type: 'piso',
@@ -267,7 +270,8 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
         }
         setFeaturedCapError(null)
       }
-      setForm((f) => ({ ...f, [name]: checked }))
+      // Al marcar «Sin precio» se vacía el importe: así no queda un precio antiguo escondido.
+      setForm((f) => ({ ...f, [name]: checked, ...(name === 'priceOnRequest' && checked ? { price: '' } : {}) }))
     } else {
       setForm((f) => ({ ...f, [name]: value }))
     }
@@ -297,7 +301,8 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
     const urls = parseImages(p.images)
     setForm({
       title: p.title,
-      price: p.price.toString(),
+      price: hasPrice(p.price) ? p.price.toString() : '',
+      priceOnRequest: !hasPrice(p.price),
       location: p.location,
       province: p.province || DEFAULT_PROVINCE,
       type: p.type,
@@ -591,8 +596,22 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
                   <input name="title" value={form.title} onChange={handleChange} required className="field" placeholder="Ej: Piso de 3 dormitorios en el centro de Lugo" />
                   <TitleTips title={form.title} duplicate={duplicateTitle} />
                 </Field>
-                <Field label="Precio (€) *">
-                  <input name="price" value={form.price} onChange={handleChange} required type="number" min="0" className="field" />
+                <Field label={form.priceOnRequest ? 'Precio (€)' : 'Precio (€) *'}>
+                  <input
+                    name="price"
+                    value={form.price}
+                    onChange={handleChange}
+                    required={!form.priceOnRequest}
+                    disabled={form.priceOnRequest}
+                    type="number"
+                    min="0"
+                    className="field disabled:cursor-not-allowed disabled:bg-stone-100 disabled:placeholder:text-stone-400"
+                    placeholder={form.priceOnRequest ? 'Sin precio' : undefined}
+                  />
+                  <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-stone-600">
+                    <input type="checkbox" name="priceOnRequest" checked={form.priceOnRequest} onChange={handleChange} className="mt-0.5 h-3.5 w-3.5 accent-brand-green" />
+                    <span>Sin precio: mostrar «{PRICE_ON_REQUEST_LABEL}»</span>
+                  </label>
                 </Field>
                 <Field label="Operación">
                   <select name="operation" value={form.operation} onChange={handleChange} className="field">
@@ -861,7 +880,9 @@ function AdminPropertiesPanel({ logout }: { logout: () => Promise<void> }) {
                           <span className="text-stone-300">—</span>
                         )}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 font-medium text-stone-800">{formatPrice(p.price, p.operation)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 font-medium text-stone-800">
+                        {hasPrice(p.price) ? formatPrice(p.price, p.operation) : <span className="text-xs font-normal italic text-stone-500" title="Se muestra «Solicitar información» en la web">Sin precio</span>}
+                      </td>
                       <td className="px-4 py-3 text-stone-600">
                         {TYPE_LABELS[p.type] || p.type}
                         <span className="block text-xs text-stone-400">{OPERATION_LABELS[p.operation || 'venta']}</span>

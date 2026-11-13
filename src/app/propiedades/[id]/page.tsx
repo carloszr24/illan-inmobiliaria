@@ -10,6 +10,7 @@ import { getExtraLabel, getPropertyExtras } from '@/lib/property-extras'
 import {
   cn,
   formatPrice,
+  hasPrice,
   OPERATION_LABELS,
   parseImages,
   STATUS_BADGE_CLASSES,
@@ -209,7 +210,11 @@ export default async function PropertyPage({ params }: Ctx) {
           <div className="sticky top-28 space-y-4">
             <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg">
               <div className="flex items-start justify-between gap-3">
-                <p className="font-display text-4xl font-semibold text-brand-green-dark">{formatPrice(property.price, operation)}</p>
+                {hasPrice(property.price) ? (
+                  <p className="font-display text-4xl font-semibold text-brand-green-dark">{formatPrice(property.price, operation)}</p>
+                ) : (
+                  <p className="font-display text-2xl font-semibold leading-tight text-brand-green-dark">Precio a consultar</p>
+                )}
                 <span className={cn('rounded border px-2.5 py-1 text-xs font-medium', STATUS_BADGE_CLASSES[property.status] || STATUS_BADGE_CLASSES.disponible)}>
                   {STATUS_LABELS[property.status] || property.status}
                 </span>

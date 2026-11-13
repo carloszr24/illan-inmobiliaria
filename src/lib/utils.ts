@@ -5,8 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Texto que se muestra cuando un inmueble se publica sin precio. */
+export const PRICE_ON_REQUEST_LABEL = 'Solicitar información'
+
+/** Un inmueble "sin precio" se guarda con precio 0 (la web muestra «Solicitar información»). */
+export const hasPrice = (price: number | null | undefined): price is number => typeof price === 'number' && price > 0
+
 export function formatPrice(price: number, operation?: string): string {
-  if (!price || price <= 0) return 'Consultar precio'
+  if (!hasPrice(price)) return PRICE_ON_REQUEST_LABEL
   const base = new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: 'EUR',

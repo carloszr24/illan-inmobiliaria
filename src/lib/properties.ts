@@ -179,8 +179,9 @@ export function parsePropertyInput(body: unknown): { value: PropertyInput } | { 
   if (!location) return { error: 'La ubicación es obligatoria' }
   if (!description) return { error: 'La descripción es obligatoria' }
 
-  const price = num(b.price)
-  if (price == null || price < 0) return { error: 'El precio no es válido' }
+  // Sin precio ("Solicitar información"): se guarda como 0. Con precio, tiene que ser un número válido.
+  const price = b.priceOnRequest === true ? 0 : num(b.price)
+  if (price == null || price < 0) return { error: 'El precio no es válido (o marca «Sin precio»)' }
 
   const type = String(b.type || 'piso')
   if (!(PROPERTY_TYPES as readonly string[]).includes(type)) return { error: 'Tipo de inmueble no válido' }

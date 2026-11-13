@@ -5,6 +5,7 @@ import type { Property } from '@/types'
 import {
   cn,
   formatPrice,
+  hasPrice,
   OPERATION_LABELS,
   parseImages,
   STATUS_BADGE_CLASSES,
@@ -87,7 +88,7 @@ export function PropertyCard({ property, priority = false }: { property: Propert
           )}
 
           <div className="mt-auto flex items-end justify-between pt-5">
-            <span className="font-display text-2xl font-semibold text-brand-green-dark">
+            <span className={cn('font-display font-semibold text-brand-green-dark', hasPrice(property.price) ? 'text-2xl' : 'text-lg leading-tight')}>
               {formatPrice(property.price, operation)}
             </span>
             <span className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-green transition-transform group-hover:translate-x-1">
